@@ -1,67 +1,65 @@
 #include "Keypad.h"
 #include "stm32f446xx.h"
 #include <stdio.h>
-#include <stdint.h>
 
-/*
-Columns are connected to pins 8, 10 and 12
-Rows are connected to pins 0, 2, 4, and 6
-*/
+void delayMs(int n) {
+ int i;
 
-//This function initializes PC0,2,4,6 (rows) and PC8,10, and 12 (columns)
-void KeyPad_Init(void){
-	RCC -> AHB1ENR |= 0x04; //Enables GPIOC Clock
-	GPIOC -> MODER &=~ 0x0333000; //Clears pins to input
-	GPIOC -> PUPDR &=~ 0x03330000; //Clear and Enable pull up resistors in columns
-	GPIOC -> PUPDR |= 0x01110000;
+ for (; n > 0; n--) {
+ for (i = 0; i < 3195; i++) ;
+ }
+}
+void KeyPad_Init(){
+	RCC -> AHB1ENR |= 0x01; //Enables GPIOA Clock
+	GPIOA -> MODER &=~ 0x0000FFFF;; //Clears pins to input
+	GPIOA -> PUPDR = 0x00000055; //Enable pull up resistors in columns
 }
 	
-int Read_KeyPad(void){
+char Read_KeyPad(){
 	int col, row;
-	uint32_t row_mode[] = {0x00000001, 0x00000010, 0x00000100, 0x00001000}; //one row is output
-	uint32_t row_low[] = {0x000100000, 0x00040000, 0x00100000, 0x00400000}; //one row is low
-	uint32_t row_high[] = {0x00000001, 0x00000004, 0x00000010, 0x00000040}; //one row is high
+	const int row_mode[] = {0x00000100, 0x00000400, 0x00001000}; //one row is output
+	const int row_low[] = {0x001000000, 0x00200000, 0x00400000}; //one row is low
+	const int row_high[] = {0x00000010, 0x00000020, 0x00000040}; //one row is high
 	
-	GPIOC -> MODER = 0x00001111; //Makes all row pins output
-	GPIOC -> BSRR = 0x00550000;	//Drive all row pins low
-	delayMs(10);
-	col = GPIOC -> IDR & 0x1500; //Read all column pins
-	GPIOC -> MODER &=~ 0x0000FF00; //Disable all row pins
-	if(col == 0x1500){ //if all columns are high
+	GPIOA -> MODER = 0x00005500; //Makes all row pins output
+	GPIOA -> BSRR = 0x00F00000;	//Drive all row pins low
+	delayMs(100);
+	col = GPIOA -> IDR & 0x000F; //Read all column pins
+	GPIOA -> MODER &=~ 0x0000FF00; //Disable all row pins
+	if(col == 0x000F){ //if all columns are high
 		return 0;				//No key is pressed
 	}
 	
 	for (row = 0; row < 4; row++){
-		GPIOC -> MODER &=~ 0x0000FF00; //disable all row pins
-		GPIOC -> MODER |= row_mode[row];	//set row to output
-		GPIOC -> BSRR = row_low[row]; //set row to low
+		GPIOA -> MODER &=~ 0x000000F0; //disable all row pins
+		GPIOA -> MODER |= row_mode[row];	//enable row
 		delayMs(100);
-		col = GPIOC -> IDR & 0x1500; //read all columns
-		GPIOC	-> BSRR |= row_high[row]; 
-		if(col != 0x1500){	//If input is low, some key is pressed
+		col = GPIOA -> IDR & 0x000F;
+		GPIOA -> BSRR |= row_high[row];
+		if(col != 0x000F){	//If input is low, some key is pressed
 			break;
 		}
 	}
-	GPIOC -> BSRR = 0x00000055; //Drive all rows high
-	GPIOC -> MODER &=~ 0x0000FF00; //disable all rows
+	GPIOA -> BSRR = 0x000000F0;
+	GPIOA -> MODER &=~ 0x0000FF00;
 	if (row == 4){	//No key was pressed
 		return 0;
 	}
 	/* get here when one of the rows has a key pressed */
-	if (col == 0x1400){ return row * 3 + 1;} //if pin 8 is low
-	if (col == 0x1000){ return row * 3 + 2;} //if pin 10 is low
-	if (col == 0x0500){ return row * 3 + 3;} //if pin 12 is low
+	if (col == 0x000E){ return row * 3 + 1;}
+	if (col == 0x000D){ return row * 3 + 2;}
+	if (col == 0x000B){ return row * 3 + 3;}
 	
 	return 0; //Safety 0
 }
 
-void Print_Char(int Print_var){
+void Print_Char(char Print_var){
 	
 	char Num;
 			
 		switch(Print_var){
 			default:
-				Num = (char)Print_var;
+				Num = Print_var;
 				break;
 			case 10:
 				Num = '*';
@@ -73,22 +71,5 @@ void Print_Char(int Print_var){
 				Num = '#';
 				break;
 		}
-		printf("%c\n", Num);
+		printf("%c", Num);
 	}
-
-	
-void sysTick_init(void) {
-	SysTick -> CTRL = 0; //Disable systick 
-	SysTick -> LOAD = 0x00FFFFFF; //Loads maximum reload value
-	SysTick -> VAL  = 0; //Clears current value
-	SysTick -> CTRL = 0x00000005; //enables systick at 3mhz
-}
-
-void delayMs(uint32_t delay){
-	SysTick -> LOAD = ((delay * 160) - 1); //delay for 1 microsecond per delay value
-	SysTick -> VAL = 0; // clears current value
-	while((SysTick -> CTRL & 0x00010000) == 0); //waits for flag to be SET
-}
-
-
-
