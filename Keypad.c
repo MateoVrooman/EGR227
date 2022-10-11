@@ -1,75 +1,74 @@
 #include "Keypad.h"
 #include "stm32f446xx.h"
 #include <stdio.h>
+#include <stdint.h>
 
-void delayMs(int n) {
- int i;
 
- for (; n > 0; n--) {
- for (i = 0; i < 3195; i++) ;
- }
+void Systick_Init(){
+	SysTick -> CTRL = 0;	//disable during step
+	SysTick -> LOAD = 0x00FFFFFF;	//loads max reload value
+	SysTick -> VAL = 0;	//clears current value
+	SysTick -> CTRL = 0x00000005;	//enables systick at 16mhz
 }
+
+void SysTick_Delay(uint32_t delayms){
+	SysTick -> LOAD = ((delayms * 16000) - 1); //1ms countdown to zero
+	SysTick -> VAL = 0;
+	while ((SysTick -> CTRL & 0x00010000) == 0);
+}
+/*
+Row pins: PC0, PC2, PC4, and PC6
+Col pins: PC8, PC10, PC12
+Numbers on keypad are connected as follows:
+		1 (PC8, PC0)	2	(PC10, PC0)	3(PC12, PC0)
+		
+		4	(PC8, PC2)	5	(PC10, PC2)	6(PC12, PC2)
+
+		7 (PC8, PC4)	8	(PC10, PC4)	9(PC12, PC4)
+
+		* (PC8, PC6)	0	(PC10, PC6)	#(PC12, PC6)
+*/
+uint8_t Hex2Bit (uint32_t hex_num){
+	uint8_t bit_count = 0;
+	while(hex_num >> 1){
+		bit_count++;
+		hex_num = hex_num>>1;
+	}
+	return bit_count;
+}
+
 void KeyPad_Init(){
-	RCC -> AHB1ENR |= 0x01; //Enables GPIOA Clock
-	GPIOA -> MODER &=~ 0x0000FFFF;; //Clears pins to input
-	GPIOA -> PUPDR = 0x00000055; //Enable pull up resistors in columns
-}
-	
-char Read_KeyPad(){
-	int col, row;
-	const int row_mode[] = {0x00000100, 0x00000400, 0x00001000}; //one row is output
-	const int row_low[] = {0x001000000, 0x00200000, 0x00400000}; //one row is low
-	const int row_high[] = {0x00000010, 0x00000020, 0x00000040}; //one row is high
-	
-	GPIOA -> MODER = 0x00005500; //Makes all row pins output
-	GPIOA -> BSRR = 0x00F00000;	//Drive all row pins low
-	delayMs(100);
-	col = GPIOA -> IDR & 0x000F; //Read all column pins
-	GPIOA -> MODER &=~ 0x0000FF00; //Disable all row pins
-	if(col == 0x000F){ //if all columns are high
-		return 0;				//No key is pressed
-	}
-	
-	for (row = 0; row < 4; row++){
-		GPIOA -> MODER &=~ 0x000000F0; //disable all row pins
-		GPIOA -> MODER |= row_mode[row];	//enable row
-		delayMs(100);
-		col = GPIOA -> IDR & 0x000F;
-		GPIOA -> BSRR |= row_high[row];
-		if(col != 0x000F){	//If input is low, some key is pressed
-			break;
-		}
-	}
-	GPIOA -> BSRR = 0x000000F0;
-	GPIOA -> MODER &=~ 0x0000FF00;
-	if (row == 4){	//No key was pressed
-		return 0;
-	}
-	/* get here when one of the rows has a key pressed */
-	if (col == 0x000E){ return row * 3 + 1;}
-	if (col == 0x000D){ return row * 3 + 2;}
-	if (col == 0x000B){ return row * 3 + 3;}
-	
-	return 0; //Safety 0
+	RCC -> AHB1ENR |= 0x14; //Enables GPIOC Clock
+	GPIOC -> MODER &=~ (uint32_t) ((3 << (2 * Hex2Bit(R0))) | (3 << (2 * Hex2Bit(R1))) | (3 << (2*Hex2Bit(R1))) | (3 << (2*Hex2Bit(R2))) | (3 << (2*Hex2Bit(R3))) | (3 << (2*Hex2Bit(C0))) | (3 << (2*Hex2Bit(C1))) | (3 << (2*Hex2Bit(C2))));
+	GPIOC -> PUPDR &=~ (uint32_t) ((3 << (2 * Hex2Bit(R0))) | (3 << (2 * Hex2Bit(R1))) | (3 << (2*Hex2Bit(R1))) | (3 << (2*Hex2Bit(R2))) | (3 << (2*Hex2Bit(R3))) | (3 << (2*Hex2Bit(C0))) | (3 << (2*Hex2Bit(C1))) | (3 << (2*Hex2Bit(C2))));
+	GPIOC -> PUPDR = (uint32_t) ((1 << (2 * Hex2Bit(R0))) | (1 << (2 * Hex2Bit(R1))) | (1 << (2*Hex2Bit(R1))) | (1 << (2*Hex2Bit(R2))) | (1 << (2*Hex2Bit(R3))) | (1 << (2*Hex2Bit(C0))) | (1 << (2*Hex2Bit(C1))) | (1 << (2*Hex2Bit(C2)))); //Enable pull up resistors in columns
 }
 
-void Print_Char(char Print_var){
-	
-	char Num;
-			
-		switch(Print_var){
-			default:
-				Num = Print_var;
-				break;
-			case 10:
-				Num = '*';
-			break;
-			case 11:
-				Num = '0';
-			break;
-			case 12:
-				Num = '#';
-				break;
-		}
-		printf("%c", Num);
+uint8_t Read_KeyPad(uint16_t *numpter){
+	uint8_t col, row;
+	for(col=0; col < 3; col++){
+		GPIOC -> MODER &=~ (uint32_t) ((3 << (2 * Hex2Bit(R0))) | (3 << (2 * Hex2Bit(R1))) | (3 << (2*Hex2Bit(R1))) | (3 << (2*Hex2Bit(R2))) | (3 << (2*Hex2Bit(R3))) | (3 << (2*Hex2Bit(C0))) | (3 << (2*Hex2Bit(C1))) | (3 << (2*Hex2Bit(C2))));
+		GPIOC -> MODER |= (uint32_t)(1 <<2*(col+4));
+		GPIOC -> ODR &=~ (uint32_t)(1 << 2*(col+4));
+		SysTick_Delay(10);
+		row = GPIOC -> IDR & (R0|R1|R2|R3);
+		while (!(GPIOC->IDR & R0) | !(GPIOC->IDR & R1) | !(GPIOC->IDR & R2) | !(GPIOC->IDR & R3));
+		
+		if(row != 0x0F) break;
 	}
+	GPIOC -> MODER &=~ (uint32_t) ((3 << (2 * Hex2Bit(R0))) | (3 << (2 * Hex2Bit(R1))) | (3 << (2*Hex2Bit(R1))) | (3 << (2*Hex2Bit(R2))) | (3 << (2*Hex2Bit(R3))) | (3 << (2*Hex2Bit(C0))) | (3 << (2*Hex2Bit(C1))) | (3 << (2*Hex2Bit(C2))));
+	
+	if(col == 3) return 0;
+	if (row == 0x0E) *numpter = col + 1;			//key in row 0
+	if (row == 0x0D) *numpter = 3 + col + 1;	//key in row 1
+	if (row == 0x0B) *numpter = 6 + col + 1;	//key in row 2
+	if (row == 0x07) *numpter = 9 + col + 1;	//key in row 3
+	return 1;
+}
+
+void Print_Keys(uint16_t *numpter){
+	if (*numpter == 12) printf("#\n");
+	if (*numpter == 11) printf("0\n");
+	if (*numpter == 10) printf("0\n");
+	if (*numpter <  10) printf("%d\n", *numpter);
+}
