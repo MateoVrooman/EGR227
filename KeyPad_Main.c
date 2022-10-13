@@ -13,11 +13,13 @@ int main(void){
 	uint16_t num, pressed;
 	num = 0;
 	uint16_t *numptr = &num;
+	uint8_t *pin[MAX_DIGITS];
+	
 	
 	while(1){
 		pressed = Read_KeyPad(numptr);
 		if(pressed != 0){
-			Print_Keys(*numptr);
+			Print_Keys(numptr);
 			SysTick_Delay(10);
 		}
 	}
