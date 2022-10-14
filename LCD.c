@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include "LCD.h"
 
 /***| Systick_init() |**********************************//*
@@ -81,7 +82,7 @@ void LCD_init_pins ()
     RCC->AHB1ENR  |= A;
 		GPIOA->MODER  &=~(uint32_t) ((3<<(2*Hex2Bit (RS)))|(3<<(2*Hex2Bit (E)))|(3<<(2*Hex2Bit (DB4)))|(3<<(2*Hex2Bit (DB5)))|(3<<(2*Hex2Bit (DB6)))|(3<<(2*Hex2Bit (DB7))));  // 2y+1:2y bits reset
 		GPIOA->MODER  |= (uint32_t) ((1<<(2*Hex2Bit (RS)))|(1<<(2*Hex2Bit (E)))|(1<<(2*Hex2Bit (DB4)))|(1<<(2*Hex2Bit (DB5)))|(1<<(2*Hex2Bit (DB6)))|(1<<(2*Hex2Bit (DB7))));  // set as output
-		GPIOA->OTYPER &=~(uint32_t) (RS|E|DB4|DB5|DB6|DB7);
+		GPIOA->OTYPER &=~(uint32_t) (RS|E|DB4|DB5|DB6|DB7); //Push/Pull
 		GPIOA->OSPEEDR&=~(uint32_t) ((3<<(2*Hex2Bit (RS)))|(3<<(2*Hex2Bit (E)))|(3<<(2*Hex2Bit (DB4)))|(3<<(2*Hex2Bit (DB5)))|(3<<(2*Hex2Bit (DB6)))|(3<<(2*Hex2Bit (DB7))));  // 2y+1:2y bits reset
 }
 
@@ -220,4 +221,19 @@ void write_data(uint8_t data)
 {
     GPIOA->ODR|= RS;                                    //RS line=>1
     push_Byte(data);
+}
+
+void center(int stringLength){
+	int indent = (16 - stringLength) / 2;
+	for(int i = 0; i < indent; i++){
+		write_data(' ');
+	}
+}
+
+void printLine(char string[]){
+	center((int)strlen(string));
+	for(int i = 0; i < (int)strlen(string); i++){ //print string 'name1'
+		write_data(string[i]);
+		write_command(0x06);
+	}
 }
