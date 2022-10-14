@@ -6,6 +6,7 @@
 #define C0 (uint32_t) 0x10
 #define C1 (uint32_t) 0x20
 #define C2 (uint32_t) 0x40
+#define MAX_DIGITS 4
 
 uint8_t Hex2Bit (uint32_t hex_num);
 uint8_t Read_KeyPad(uint16_t *numpter);
