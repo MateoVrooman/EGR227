@@ -29,7 +29,7 @@ int main(void)
 	char yLine[16];
 	sprintf(yLine, "Y = %g", y);
 	char divLine[16];
-	sprintf(divLine, "Division   x/y");
+	sprintf(divLine, "Division x/y");
 	char resultLine[16];
 	sprintf(resultLine, "%g", c);
 	
