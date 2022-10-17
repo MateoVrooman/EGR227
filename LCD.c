@@ -237,3 +237,8 @@ void printLine(char string[]){
 		write_command(0x06);
 	}
 }
+
+
+	
+	
+	
